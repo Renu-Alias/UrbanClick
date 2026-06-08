@@ -1,0 +1,131 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Default Deny Catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 3. Hardened Global Reusable Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isAdmin() {
+      return isSignedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // 2. Exact Validation Blueprints (No shadow fields / prevent Update-Gaps)
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['uid', 'email', 'fullName', 'role']) &&
+             data.keys().size() >= 4 &&
+             data.keys().size() <= 6 &&
+             data.uid is string && data.uid.size() <= 128 && data.uid == request.auth.uid &&
+             data.email is string && data.email.size() <= 128 && data.email.size() > 3 &&
+             data.fullName is string && data.fullName.size() <= 128 && data.fullName.size() > 0 &&
+             data.role is string && (data.role == 'user' || data.role == 'admin') &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() <= 32)) &&
+             (!('address' in data) || (data.address is string && data.address.size() <= 256));
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasAll(['id', 'name', 'description', 'price', 'imageUrl', 'category', 'stock', 'rating', 'numReviews']) &&
+             data.keys().size() == 9 &&
+             data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() <= 128 && data.name.size() > 0 &&
+             data.description is string && data.description.size() <= 1024 &&
+             data.price is number && data.price >= 0.0 &&
+             data.imageUrl is string && data.imageUrl.size() <= 1024 &&
+             data.category is string && data.category.size() <= 128 &&
+             data.stock is number && data.stock >= 0 &&
+             data.rating is number && data.rating >= 0 && data.rating <= 5.0 &&
+             data.numReviews is number && data.numReviews >= 0;
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll(['id', 'userId', 'userEmail', 'totalAmount', 'status', 'createdAt', 'shippingAddress', 'paymentDetails', 'items']) &&
+             data.keys().size() == 9 &&
+             data.id is string && data.id.size() <= 128 &&
+             data.userId is string && data.userId.size() <= 128 && data.userId == request.auth.uid &&
+             data.userEmail is string && data.userEmail.size() <= 128 &&
+             data.totalAmount is number && data.totalAmount >= 0.0 &&
+             data.status is string && (data.status == 'pending' || data.status == 'processing' || data.status == 'shipped' || data.status == 'delivered' || data.status == 'cancelled') &&
+             data.createdAt is string && data.createdAt.size() <= 64 &&
+             data.shippingAddress is map &&
+             data.paymentDetails is map &&
+             data.items is list && data.items.size() >= 1 && data.items.size() <= 100;
+    }
+
+    // 4. Match Rules for Specific Collections
+
+    // USERS COLLECTION
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidUserProfile(incoming());
+      
+      // Prevent self-assigned role escalations
+      allow update: if isSignedIn() && request.auth.uid == userId && isValidUserProfile(incoming()) && (
+        (incoming().role == existing().role) || isAdmin()
+      );
+      
+      allow delete: if isAdmin();
+    }
+
+    // PRODUCTS COLLECTION
+    match /products/{productId} {
+      allow get, list: if true; // Public listings
+      
+      allow create, delete: if isAdmin() && isValidProduct(incoming());
+      
+      // Standard customers can decrement stock on orders, Admins can do any valid update
+      allow update: if (
+        (isAdmin() && isValidProduct(incoming())) ||
+        (isSignedIn() && 
+         incoming().diff(existing()).affectedKeys().hasOnly(['stock']) && 
+         incoming().stock is number && 
+         incoming().stock >= 0 && 
+         incoming().stock <= existing().stock)
+      );
+    }
+
+    // ORDERS COLLECTION
+    match /orders/{orderId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid && isValidOrder(incoming());
+      
+      // Limit user updates to cancellations of non-terminal orders (Tiers & Terminal State Locking)
+      allow update: if isSignedIn() && (
+        (isAdmin() && isValidOrder(incoming())) ||
+        (resource.data.userId == request.auth.uid && 
+         incoming().diff(existing()).affectedKeys().hasOnly(['status']) && 
+         incoming().status == 'cancelled' && 
+         (existing().status == 'pending' || existing().status == 'processing'))
+      );
+      
+      allow delete: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile document containing permissions and identity properties.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Unique identifier of the user." },
+        "email": { "type": "string", "format": "email", "description": "Email address." },
+        "fullName": { "type": "string", "description": "Display name." },
+        "role": { "type": "string", "enum": ["user", "admin"], "description": "Access privileges." },
+        "phone": { "type": "string", "description": "Optional contact phone number." },
+        "address": { "type": "string", "description": "Optional contact billing/shipping address." }
+      },
+      "required": ["uid", "email", "fullName", "role"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Product inventory item available in the catalog.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique product ID." },
+        "name": { "type": "string", "description": "Product name." },
+        "description": { "type": "string", "description": "Detailed text description." },
+        "price": { "type": "number", "description": "Price of the product." },
+        "imageUrl": { "type": "string", "description": "External reference image link." },
+        "category": { "type": "string", "description": "Category group." },
+        "stock": { "type": "number", "description": "Remaining stock count." },
+        "rating": { "type": "number", "description": "Average review rating stars." },
+        "numReviews": { "type": "number", "description": "Number of product reviews." }
+      },
+      "required": ["id", "name", "description", "price", "imageUrl", "category", "stock"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Purchased placement of a basket of products.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique order ID." },
+        "userId": { "type": "string", "description": "Ordering user unique ID." },
+        "userEmail": { "type": "string", "format": "email", "description": "Email check of the buyer." },
+        "totalAmount": { "type": "number", "description": "Total order amount including shipping." },
+        "status": { "type": "string", "enum": ["pending", "processing", "shipped", "delivered", "cancelled"], "description": "Product lifecycle status tracking." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Order creation date time." }
+      },
+      "required": ["id", "userId", "userEmail", "totalAmount", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles containing permissions and details."
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Storefront product inventory catalog."
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "Historic order logs for tracking checkout timelines."
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "UrbanClick",
+  "description": "A simple, modern e-commerce storefront with a responsive product catalog, add-to-cart, secure dummy checkout, profile management, and live order tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
