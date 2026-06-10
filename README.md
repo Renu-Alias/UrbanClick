@@ -4,14 +4,6 @@ UrbanClick is a highly polished, desktop-first, responsive e-commerce applicatio
 
 ---
 
-## 🎨 Visual Identity & Theme
-UrbanClick adheres strictly to the **Geometric Balance** visual template:
-*   **Color Palette:** Ambient Slate off-white backgrounds, deep Charcoal elements (`text-slate-900`), and striking Cobalt accents (`text-blue-600` / `bg-blue-600`).
-*   **Negative Space:** Generous micro-paddings, architectural grids, and distinct geometric dividers.
-*   **Typography:** Prominent, high-density display headings paired with elegant monospaced technical details (`font-mono`) for numerical listings.
-*   **Interface Assets:** Crisp vector icons imported solely from `lucide-react` with precise scaling limits.
-
----
 
 ## 🚀 Key Architectural Modules
 
